@@ -7,7 +7,7 @@ from matplotlib import cm
 from matplotlib.gridspec import GridSpec
 import sys
 import argparse
-from kernels import kernel_factory
+from kernels import kernel_factory, expand_kernel
 
 def parse_inputs():
 	parser = argparse.ArgumentParser()
@@ -24,12 +24,7 @@ def parse_inputs():
 	config = parser.parse_args()
 	return config 
 
-def expand_kernel(kernel, X_1, X_2):
-	Sigma = np.zeros((len(X_1), len(X_2)))
-	for i in range(0, len(X_1)):
-		for j in range(0, len(X_2)):
-			Sigma[i,j] = kernel(X_1[i], X_2[j])
-	return Sigma
+
 
 def prior_sample(config):
 	linestyles = ['-', '--', '-.', ':']
@@ -93,6 +88,44 @@ def posterior_sample(config):
 	lower_conf = posterior_mean - 2 * variances
 	ax1.fill_between(x_test, upper_conf , lower_conf, alpha=.5, color="#3690C0", linewidth=0)
 	plt.savefig('gp_posterior.png')
+
+
+
+
+class GP:
+	def __init__(self, kernel):
+		if not isinstance(kernel, kernels.Kernel):
+			raise ValueError("Gaussian Process must be instantiated with a valid Kernel object.")
+		self.x = np.sort(np.random.uniform(-5,5,200)
+		self.mean = np.zeros(len(x))
+		self.covariance = expand_kernel(kernel, x, x)
+
+	def sample(self, num_samples):
+		samples = []
+		for i in range(0,num_samples):
+			g =  multivariate_normal(self.mean, self.covariance) 
+			samples.append(g)
+		return samples
+
+	def fit(self, x_observed, y_observed):
+		x_test = np.linspace(min(x_observed),max(x_observed),200)
+
+		# Joint prior covariance is a block matrix with these four components
+		# Eq (2.18)
+		X_obs_obs = expand_kernel(kernel, x_observed, x_observed)
+		X_obs_test = expand_kernel(kernel, x_observed, x_test)
+		X_test_obs = expand_kernel(kernel, x_test,x_observed)
+		X_test_test = expand_kernel(kernel, x_test, x_test)
+
+		# Eq (2.19)
+		self.mean = X_test_obs.dot(np.linalg.inv(X_obs_obs)).dot(y_observed)
+		self.covariance = X_test_test - X_test_obs.dot( np.linalg.inv(X_obs_obs) ).dot(X_obs_test)
+
+	def predict(self):
+		variances = np.sqrt(np.diag(posterior_covariance))
+		upper_conf = posterior_mean + 2 * variances
+		lower_conf = posterior_mean - 2 * variances
+		return (self.mean, self.upper_conf, self.lower_conf)
 
 
 if __name__ == '__main__':

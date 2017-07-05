@@ -50,6 +50,13 @@ class LocallyPeriodic(Kernel):
 	def __call__(self, x, xprime):
 		return self.se(x,xprime) * self.periodic(x, xprime)
 
+def expand_kernel(kernel, X_1, X_2):
+	Sigma = np.zeros((len(X_1), len(X_2)))
+	for i in range(0, len(X_1)):
+		for j in range(0, len(X_2)):
+			Sigma[i,j] = kernel(X_1[i], X_2[j])
+	return Sigma
+
 def kernel_factory(config):
 	if config.kernel.lower() == "se":
 		return SE(config.length_scale,config.sigma)

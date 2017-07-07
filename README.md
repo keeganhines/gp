@@ -38,3 +38,13 @@ This will result in two output images which provide visualizations of Gassian Pr
 ![post](static/gp_posterior.png)
 
 # Kernels
+ TODO
+
+# Sampling a GP
+ TODO
+
+# Fitting
+ TODO
+
+# Posterior
+ TODO

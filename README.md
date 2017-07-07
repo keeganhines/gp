@@ -5,7 +5,7 @@ Some notes and code as I finally work through the [Rasmussen & Williams book](ht
 # Contents
 1. [Use](#use)
 2. [Kernels](#kernels)
-3. [Sampling a GP](#sampling a gp)
+3. [Sampling a GP](#sampling)
 4. [Fitting](#fitting)
 5. [Posterior](#posterior)
 
@@ -32,7 +32,7 @@ Then just run the main method in gp.py
 ```
 python gp.py -kernel se --length_scale 2 --sigma 1
 ```
-This will result in two output images which provide visualizations of Gassian Process prior and posterior. Much more explanation of that follows below.
+This will result in two output images which provide visualizations of Gassian Process prior and posterior. Much more technical explanation and tutorial of all that follows below.
 
 ![prior](static/gp_prior.png)
 ![post](static/gp_posterior.png)
@@ -40,7 +40,7 @@ This will result in two output images which provide visualizations of Gassian Pr
 # Kernels
  TODO
 
-# Sampling a GP
+# Sampling
  TODO
 
 # Fitting

@@ -58,11 +58,12 @@ def expand_kernel(kernel, X_1, X_2):
 	return Sigma
 
 def kernel_factory(config):
-	if config.kernel.lower() == "se":
+	choice = config.kernel.lower()
+	if choice == "se":
 		return SE(config.length_scale,config.sigma)
-	elif config.kernel.lower() == "periodic":
+	elif choice == "periodic":
 		return Periodic(config.length_scale,config.sigma, config.period)
-	elif config.kernel.lower() == "locally_periodic":
+	elif choice == "locally_periodic":
 		return LocallyPeriodic(config.length_scale,config.sigma, config.period)
 	else:
 		raise ValueError("Invalid Kernel choice")

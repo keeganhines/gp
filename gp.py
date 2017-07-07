@@ -7,7 +7,8 @@ from matplotlib import cm
 from matplotlib.gridspec import GridSpec
 import sys
 import argparse
-from kernels import kernel_factory, expand_kernel
+import kernels as k
+import visualization as viz
 
 def parse_inputs():
 	parser = argparse.ArgumentParser()
@@ -24,81 +25,20 @@ def parse_inputs():
 	config = parser.parse_args()
 	return config 
 
-
-
-def prior_sample(config):
-	linestyles = ['-', '--', '-.', ':']
-	kernel = kernel_factory(config)
-	print("Instantiated prior with kernel: " + kernel.name())
-	x = np.sort(np.random.uniform(-5,5,config.num_x_inputs))
-	Sigma = expand_kernel(kernel, x, x)
-
-	fig=plt.figure()
-	gs=GridSpec(2,2)
-	ax1=fig.add_subplot(gs[0,0])
-	x_dist = np.linspace(0, max(x) + 5, num=50)
-	kern_value = [kernel(0, thing) for thing in x_dist]
-	plt.plot(x_dist, kern_value, '-', linewidth=4)
-
-	ax2=fig.add_subplot(gs[0,1])
-	plt.imshow(Sigma, extent=[min(x), max(x), min(x), max(x)])
-
-	ax1=fig.add_subplot(gs[1,:])
-	plt.ylim(-3,3)
-	for i in range(0,3):
-		g =  multivariate_normal(np.zeros(len(x)), Sigma) 
-		plt.plot(x,g,linestyles[i], linewidth=3, color = cm.Paired(i*30))
-	plt.savefig('gp_prior.png')
-	plt.close()
-
-
-def posterior_sample(config):
-	kernel = kernel_factory(config)
-	print("Instantiated posterior with kernel: " + kernel.name())
-	x_observed = np.sort(np.random.uniform(-15,15,20))
-	y_observed = np.sin((Pi * (x_observed))/5)
-	x_test = np.linspace(-15,15,200)
-
-	# Joint prior covariance is a block matrix with these four components
-	# Eq (2.18)
-	X_obs_obs = expand_kernel(kernel, x_observed, x_observed)
-	X_obs_test = expand_kernel(kernel, x_observed, x_test)
-	X_test_obs = expand_kernel(kernel, x_test,x_observed)
-	X_test_test = expand_kernel(kernel, x_test, x_test)
-
-	# Eq (2.19)
-	posterior_mean = X_test_obs.dot(np.linalg.inv(X_obs_obs)).dot(y_observed)
-	posterior_covariance = X_test_test - X_test_obs.dot( np.linalg.inv(X_obs_obs) ).dot(X_obs_test)
-
-	fig=plt.figure()
-	gs=GridSpec(2,1)
-	ax1=fig.add_subplot(gs[0,0])
-	plt.plot(x_observed,y_observed,'k+',markersize=15)
-	for i in range(0,5):
-		p =  multivariate_normal(posterior_mean, posterior_covariance) 
-		plt.plot(x_test,p,'--', color = cm.Paired(i*30),linewidth=1)
-
-
-	ax1=fig.add_subplot(gs[1,0])
-	plt.plot(x_observed,y_observed,'k+',markersize=15)
-	plt.xlim([min(x_test), max(x_test)])
-	plt.plot(x_test, posterior_mean, 'k-',linewidth=1, alpha=.5)
-	variances = np.sqrt(np.diag(posterior_covariance))
-	upper_conf = posterior_mean + 2 * variances
-	lower_conf = posterior_mean - 2 * variances
-	ax1.fill_between(x_test, upper_conf , lower_conf, alpha=.5, color="#3690C0", linewidth=0)
-	plt.savefig('gp_posterior.png')
-
-
-
-
-class GP:
+class GaussianProcess:
 	def __init__(self, kernel):
-		if not isinstance(kernel, kernels.Kernel):
+		if not isinstance(kernel, k.Kernel):
 			raise ValueError("Gaussian Process must be instantiated with a valid Kernel object.")
-		self.x = np.sort(np.random.uniform(-5,5,200)
-		self.mean = np.zeros(len(x))
-		self.covariance = expand_kernel(kernel, x, x)
+		self.kernel = kernel
+		self.x = np.sort(np.random.uniform(-5,5,200))
+		self.mean = np.zeros(len(self.x))
+		self.covariance = k.expand_kernel(self.kernel, self.x, self.x)
+
+		# placeholders for fitted data
+		self.is_fitted = False
+		self.x_observed = None
+		self.y_observed = None
+		self.x_test = None
 
 	def sample(self, num_samples):
 		samples = []
@@ -108,30 +48,41 @@ class GP:
 		return samples
 
 	def fit(self, x_observed, y_observed):
-		x_test = np.linspace(min(x_observed),max(x_observed),200)
+		self.x_test = np.linspace(min(x_observed),max(x_observed),200)
+		self.x_observed = x_observed
+		self.y_observed = y_observed
 
 		# Joint prior covariance is a block matrix with these four components
 		# Eq (2.18)
-		X_obs_obs = expand_kernel(kernel, x_observed, x_observed)
-		X_obs_test = expand_kernel(kernel, x_observed, x_test)
-		X_test_obs = expand_kernel(kernel, x_test,x_observed)
-		X_test_test = expand_kernel(kernel, x_test, x_test)
+		X_obs_obs = k.expand_kernel(self.kernel, self.x_observed, self.x_observed)
+		X_obs_test = k.expand_kernel(self.kernel, self.x_observed, self.x_test)
+		X_test_obs = k.expand_kernel(self.kernel, self.x_test, self.x_observed)
+		X_test_test = k.expand_kernel(self.kernel, self.x_test, self.x_test)
 
 		# Eq (2.19)
 		self.mean = X_test_obs.dot(np.linalg.inv(X_obs_obs)).dot(y_observed)
 		self.covariance = X_test_test - X_test_obs.dot( np.linalg.inv(X_obs_obs) ).dot(X_obs_test)
+		self.is_fitted = True
 
 	def predict(self):
-		variances = np.sqrt(np.diag(posterior_covariance))
-		upper_conf = posterior_mean + 2 * variances
-		lower_conf = posterior_mean - 2 * variances
-		return (self.mean, self.upper_conf, self.lower_conf)
+		variances = np.sqrt(np.diag(self.covariance))
+		upper_conf = self.mean + 2 * variances
+		lower_conf = self.mean - 2 * variances
+		return (self.mean, upper_conf, lower_conf)
 
 
 if __name__ == '__main__':
 	config = parse_inputs()
-	prior_sample(config)
-	posterior_sample(config)
+	kernel = k.kernel_factory(config)
+	gp = GaussianProcess(kernel)
+	print("Instantiated GP with kernel: " + kernel.name())
+	print("Visualizing GP prior distribution")
+	viz.prior_viz(gp)
 
+	print("Fitting model")
+	x_observed = np.sort(np.random.uniform(-15,15,20))
+	y_observed = np.sin((Pi * (x_observed))/5)
+	gp.fit(x_observed, y_observed)
 
-
+	print("Visualizing GP posterior distribution")
+	viz.posterior_viz(gp)

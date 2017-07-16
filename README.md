@@ -90,7 +90,7 @@ plt.savefig("static/se_kern_2.png")
 
 ![samples](static/se_kern_2.png)
 
-As I mentioned, the properties of the kernels have a big impact on the properties of the functions drawn from a GP. In the case the SE kernel, the length scale of the kernel impacts the wiggles of the function. With a long length scale kernel, we expect long-range correlations in y(x) and thus the function draws are long and smooth. With a low length scale kernel, we get just the opposite: more wiggly functions that can change rapidly.
+As I mentioned, the properties of the kernels have a big impact on the properties of the functions drawn from a GP. In the case of the SE kernel, the length scale of the kernel impacts the wiggles of the function. With a long length scale kernel, we expect long-range correlations in y(x) and thus the function draws are long and smooth. With a low length scale kernel, we get just the opposite: more wiggly functions that can change rapidly.
 
 ```python
 gp = GaussianProcess(SE(5,1))
@@ -110,7 +110,7 @@ for i in range(0,3):
 	plt.plot(gp.x,f, linewidth=3, color = cm.Paired(i*30))
 plt.savefig("static/gp_samples_se_2.png")
 ```
-![samples](static/gp_samples_se_1.png)
+![samples](static/gp_samples_se_2.png)
 
 # Fitting
  TODO

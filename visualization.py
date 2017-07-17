@@ -2,7 +2,7 @@
 """
 Utilities for visualizing Gaussian Processes.
 """
-#from gp import GaussianProcess
+from gp import GaussianProcess
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.gridspec import GridSpec

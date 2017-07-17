@@ -200,7 +200,7 @@ plt.savefig("static/kernel_covar.png")
 
 ![samples](static/kernel_covar.png)
 
-In general, these kernel covariances look a little "choppy" because I'm randomly sampling x-values instead of doing a fixed great, so the heatmap vizualization looks a little rough. But there's enough to get a sense of things. In each plot, red correspond to values of high correlation and blue corresponds to values of low correlation. Remember that the x and y axes are plotting the (sampled) range of x-values. 
+In general, these kernel covariances look a little "choppy" because I'm randomly sampling x-values instead of doing a fixed grid, so the heatmap vizualization looks a little rough. But there's enough to get a sense of things. In each plot, red correspond to values of high correlation and blue corresponds to values of low correlation. Remember that the x and y axes are plotting the (sampled) range of x-values. 
 
 On the left is the covariance matrix for the Squared Exponential kernel. The diagonal of this covariance is highly red. That's because the diagonal of this matrix is all value where x_1 and x_2 are very close, and for the SE kernel, we know that's the situation where the kernel is maximized. From the diagonal, the kernel "diffuses" in color symmetrically in both directions. In fact, any given horizontal "slice" through the covariance matrix would just be the kernel profile plot we've looked at before (this is true for all the kernels). For the SE kernel, if we adjusted the length scale parameter, the effect would be to change how narrow or diffuse the band around the diagonal is.
 
@@ -209,7 +209,58 @@ In the middle is the Covariance for the Periodic kernel. Note that this too has 
 So we've seen that a draw from a Gaussian Process is a non-linear smooth function and that the properties of the GP's kernel has a big impact on nature of those functions. We haven't actually talked about _how_ to draw samples from a GP, and I don't intend to here, in order to keep the mathematical details tucked away. But instead let's turn to _why_: what can we use this stuff for?
 
 # Fitting
+Let's say we've measured some data out in the world: maybe stock market data, maybe stellar temperature data, maybe student performance data. Within our measurements, there are some unknown relationships between the variables that we would like to get an understanding of. But those relationships coud be complicated and hard to model, and futher, we only have a small number of observations to even analyze. Instead of making strong assumptions about these relationships (like we would be doing with, say, multiple regression), we can turn to the GP. 
 
+Rememeber I said that a GP can act as a probability distribution over the set of all smooth functions. A probability distribution over all of them - all infinitely many of them. So the Bayesian way to tackle our general problem is start with a GP prior on the relationships we're trying to model. Then we'll use the observed data that we do have to _update_ the GP posterior and get a quantification of the set of all functions that possibly could have explained our data. Since we're using the GP and flexble kernels, we're making very few constraining decisions about the space of functions we're using to fit our data. And at the end of it, we will have a a full quantification of the set of functions that likely generated our observations, including full estimates of uncertainty about those functions. This then is major use case for Gaussian Processes: we can use GPs as very flexible and power method for doing function estimation, interpolation, and forecasting.
+
+So let's get a concrete example going. Here's some fake data that we measured out in the real world. We have a small number of samples observed from a sinusoidal function.
+
+```python
+from math import pi
+x_observed = np.sort(np.random.uniform(-15,15,20))
+y_observed = np.sin((pi * (x_observed))/5)
+plt.plot(x_observed,y_observed,'k+',markersize=15)
+```
+
+![samples](static/fake_data.png)
+
+
+We can use these observations and combine with our GP prior to have an updated GP posterior. For simplicity, we'll use the SE kernel from here on out.
+
+```python
+gp = GaussianProcess(SE(1,1))
+gp.fit(x_observed, y_observed)
+```
+
+Now that we've updated the posterior, we can take new draws from the GP. This time, instead of these draws being any arbitrary functions that are consistent with the kernel, these draws now will be limited to only those functions which are consistent with the observed data. So let's re-plot our observed data and let's also take several new draws from our updated GP posterior and overlay these functions on the plot.
+
+```python
+plt.plot(gp.x_observed,gp.y_observed,'k+',markersize=15)
+for i in range(0,3):
+	f = gp.sample(1)[0] 
+	plt.plot(gp.x_test,f, color = cm.Paired(i*30),linewidth=2)
+plt.savefig("static/gp_post_samples.png")
+```
+![samples](static/gp_post_samples.png)
+
+There's a few things to point out here. Note that our three draws from the GP are wildy different in some areas. That's the whole point: these are all functions that would be possible and consistent with the observed data. Said differently, let's focus in on our observations - the plus-sign markers. Since the observations are simulated at random, the x-samples aren't evenly spaced. There are some regions of x-space where we have several close observations of x and y(x) and then there are some regions where have no observations at all. So let's focus first on an area where we have several observations: the region near x=-8 or so. Notice two things about our functions in this area. First, they all pass through each of the observed data points here. And second, all three of the draws are pretty similar to each other in this region. Since they all have to pass through (or near) the observations, and they observations are closely-spaced in this region, these three functions inevitably have to be similar in this region. But this is not so everywhere. Look next at the region near x=0. In this region, we have no observations about the relationship between x and y(x). And in this region we see huge variability between the three different functions. That's because we have no data here to constrain the functions. They are each perfectly plausible explanations of the data. So in some areas, our draws from the posterior will be quite constrained, and in other areas they are quite unconstrained and unknown. This is exactly how GPs allow us to quantify uncertainty. 
 
 # Posterior
- TODO
+Instead of pulling lots of draws from a GP posterior, we can analytically compute our full posterior distribution of function space. Again, I'm keeping the math hidden, but given the updated Covariance matrix, it's some straightforward linear algebra. With my GaussianProcess class, we can use the predict() method to get the posterior mean as well as 95% confidence intervals (credible intervals).
+
+```python
+(mean, upper_conf, lower_conf) = gp.predict()
+```
+
+Then we'll just make a nice visualization of the observed data, the posterior mean, and the intervals.
+
+```python
+plt.plot(gp.x_observed,gp.y_observed,'k+',markersize=15)
+plt.xlim([min(gp.x_test), max(gp.x_test)])
+plt.plot(gp.x_test, mean, 'k-',linewidth=1, alpha=.5)
+plt.fill_between(gp.x_test, upper_conf , lower_conf, alpha=.5, color="#3690C0", linewidth=0)
+plt.savefig('static/gp_obs_and_posterior.png')
+```
+![samples](static/gp_obs_and_posterior.png)
+
+This posterior distribution now confirms several of the things we noted previously with the GP samples. First, note that the posterior mean (black curve) pass through all the observations (though with "noisy" measurements, we can relax that constraint). Outside of the posterior mean, the blue region indicates the 95% interval. This is the confidence region that tells us that whatever function generated our observations, it is highly likely to lie within this region. This is how the GP allows us to put a quantification on the (infinite) set of all smooth functions. Finally, notice that the interval is certainly not constant in width throughout the full range of observations. Near x=-8, the confidence region is very narrow, so narrow that we can barely see it underneath the posterior mean in this visualization. However, in areas where we have little observed data, we can't say much about what y(x) likely is. Accordingly, the confidence region is very large in those areas, such as near x=0. Thus, the GP has allowed us to (1) derive an estimated function that captures the relationship between y(x) and x using a nonparametric approach and (2) provide full quantification about our uncertainty in that function.

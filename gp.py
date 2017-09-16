@@ -59,8 +59,16 @@ class GaussianProcess:
 		X_test_test = k.expand_kernel(self.kernel, self.x_test, self.x_test)
 
 		# Eq (2.19)
-		self.mean = X_test_obs.dot(np.linalg.inv(X_obs_obs)).dot(y_observed)
-		self.covariance = X_test_test - X_test_obs.dot( np.linalg.inv(X_obs_obs) ).dot(X_obs_test)
+		# self.mean = X_test_obs.dot(np.linalg.inv(X_obs_obs)).dot(y_observed)
+		# self.covariance = X_test_test - X_test_obs.dot( np.linalg.inv(X_obs_obs) ).dot(X_obs_test)
+		# self.is_fitted = True
+
+		# More numerically stable, Alg 2.1
+		L = np.linalg.cholesky(X_obs_obs)
+		alpha = np.linalg.solve(L.transpose(), np.linalg.solve(L,y_observed))
+		V = np.linalg.solve(L, X_obs_test)
+		self.mean = np.dot(X_obs_test.transpose() , alpha)
+		self.covariance = X_test_test - np.dot(V.transpose(), V)
 		self.is_fitted = True
 
 	def predict(self):

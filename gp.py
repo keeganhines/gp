@@ -2,9 +2,6 @@ from math import exp
 from math import pi as Pi
 from numpy.random import normal, multivariate_normal
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.gridspec import GridSpec
 import sys
 import argparse
 import kernels as k
@@ -22,6 +19,8 @@ def parse_inputs():
 		type=int)
 	parser.add_argument("--period", help="number of data samples",
 		type=float)
+	parser.add_argument("--data_noise", help="vague description",
+		type=float, default=0)
 	config = parser.parse_args()
 	return config 
 
@@ -47,14 +46,14 @@ class GaussianProcess:
 			samples.append(g)
 		return samples
 
-	def fit(self, x_observed, y_observed):
+	def fit(self, x_observed, y_observed, noise=0):
 		self.x_test = np.linspace(min(x_observed),max(x_observed),200)
 		self.x_observed = x_observed
 		self.y_observed = y_observed
 
 		# Joint prior covariance is a block matrix with these four components
 		# Eq (2.18)
-		X_obs_obs = k.expand_kernel(self.kernel, self.x_observed, self.x_observed)
+		X_obs_obs = k.expand_kernel(self.kernel, self.x_observed, self.x_observed) + np.eye(self.x_observed.size)*noise
 		X_obs_test = k.expand_kernel(self.kernel, self.x_observed, self.x_test)
 		X_test_obs = k.expand_kernel(self.kernel, self.x_test, self.x_observed)
 		X_test_test = k.expand_kernel(self.kernel, self.x_test, self.x_test)
@@ -82,7 +81,7 @@ if __name__ == '__main__':
 	print("Fitting model")
 	x_observed = np.sort(np.random.uniform(-15,15,20))
 	y_observed = np.sin((Pi * (x_observed))/5)
-	gp.fit(x_observed, y_observed)
+	gp.fit(x_observed, y_observed, config.data_noise)
 
 	print("Visualizing GP posterior distribution")
 	viz.posterior_viz(gp)
